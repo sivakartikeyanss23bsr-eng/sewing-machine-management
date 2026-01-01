@@ -1,16 +1,9 @@
 const speakeasy = require('speakeasy');
-const twilio = require('twilio');
-
-// Initialize Twilio client (you'll need to get these from Twilio)
-const twilioClient = twilio(
-  process.env.TWILIO_ACCOUNT_SID,
-  process.env.TWILIO_AUTH_TOKEN
-);
 
 // Store OTPs in memory (in production, use Redis or similar)
 const otpStore = new Map();
 
-// Generate and send OTP
+// Generate and store OTP
 const sendOTP = async (phoneNumber) => {
   try {
     // Generate OTP
@@ -29,20 +22,16 @@ const sendOTP = async (phoneNumber) => {
       expiresAt: Date.now() + 300000 // 5 minutes from now
     });
 
-    // Send OTP via SMS (uncomment when you have Twilio credentials)
-    // await twilioClient.messages.create({
-    //   body: `Your OTP is: ${otp}. It's valid for 5 minutes.`,
-    //   from: process.env.TWILIO_PHONE_NUMBER,
-    //   to: phoneNumber
-    // });
-
     // For development, log the OTP to console
     console.log(`OTP for ${phoneNumber}: ${otp}`);
 
-    return { success: true };
+    return { 
+      success: true, 
+      message: 'OTP generated successfully. Check the console for the OTP (in development).' 
+    };
   } catch (error) {
-    console.error('Error sending OTP:', error);
-    return { success: false, error: 'Failed to send OTP' };
+    console.error('Error generating OTP:', error);
+    return { success: false, error: 'Failed to generate OTP' };
   }
 };
 
@@ -72,15 +61,34 @@ const verifyOTP = (phoneNumber, userOTP) => {
     if (isValid) {
       // Clear the OTP after successful verification
       otpStore.delete(phoneNumber);
-      return { success: true };
+      return { 
+        success: true, 
+        message: 'OTP verified successfully' 
+      };
     }
 
-    return { success: false, error: 'Invalid OTP' };
+    return { 
+      success: false, 
+      error: 'Invalid OTP. Please check and try again.' 
+    };
   } catch (error) {
     console.error('Error verifying OTP:', error);
-    return { success: false, error: 'Error verifying OTP' };
+    return { 
+      success: false, 
+      error: 'An error occurred while verifying OTP' 
+    };
   }
 };
+
+// Clean up expired OTPs periodically
+setInterval(() => {
+  const now = Date.now();
+  for (const [phoneNumber, otpData] of otpStore.entries()) {
+    if (now > otpData.expiresAt) {
+      otpStore.delete(phoneNumber);
+    }
+  }
+}, 60000); // Run every minute
 
 module.exports = {
   sendOTP,
