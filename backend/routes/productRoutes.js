@@ -1,9 +1,11 @@
 const router = require("express").Router();
-const pool = require("../db");
+const productController = require("../controllers/productController");
+const { authenticateToken, requireAdmin } = require("../middleware/auth");
 
-router.get("/", async (req, res) => {
-  const products = await pool.query("SELECT * FROM products");
-  res.json(products.rows);
-});
+router.get("/", productController.getAllProducts);
+router.get("/:id", productController.getProductById);
+router.post("/", authenticateToken, requireAdmin, productController.addProduct);
+router.put("/:id", authenticateToken, requireAdmin, productController.updateProduct);
+router.delete("/:id", authenticateToken, requireAdmin, productController.deleteProduct);
 
 module.exports = router;

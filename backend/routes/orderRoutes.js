@@ -1,13 +1,11 @@
 const router = require("express").Router();
-const pool = require("../db");
+const orderController = require("../controllers/orderController");
+const { authenticateToken, requireAdmin } = require("../middleware/auth");
 
-router.post("/", async (req, res) => {
-  const { user_id, total } = req.body;
-  await pool.query(
-    "INSERT INTO orders (user_id, total, status) VALUES ($1,$2,$3)",
-    [user_id, total, "Pending"]
-  );
-  res.json({ message: "Order placed" });
-});
+router.post("/", authenticateToken, orderController.createOrder);
+router.get("/", authenticateToken, requireAdmin, orderController.getAllOrders);
+router.get("/user", authenticateToken, orderController.getUserOrders);
+router.put("/:id", authenticateToken, requireAdmin, orderController.updateOrderStatus);
+router.get("/:id/history", authenticateToken, orderController.getOrderStatusHistory);
 
 module.exports = router;

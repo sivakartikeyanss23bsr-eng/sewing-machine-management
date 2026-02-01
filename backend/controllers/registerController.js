@@ -1,103 +1,37 @@
 const pool = require("../db");
 const bcrypt = require("bcrypt");
-const { sendOTP, verifyOTP } = require("../utils/otp");
 
 // Input validation function
-const validateInput = (data, isOTPVerification = false) => {
-  const { name, email, password, gender, phone, dob, address, otp } = data;
+const validateInput = (data) => {
+  const { name, email, password, gender, phone, dob, address } = data;
   const errors = [];
 
-  if (!isOTPVerification) {
-    // Registration form validation
-    if (!name) errors.push("Name is required");
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      errors.push("Valid email is required");
-    }
-    if (!password || password.length < 6) {
-      errors.push("Password must be at least 6 characters");
-    }
-    if (!['Male', 'Female', 'Other'].includes(gender)) {
-      errors.push("Valid gender is required");
-    }
-    if (!phone || !/^\d{10,15}$/.test(phone)) {
-      errors.push("Valid phone number is required");
-    }
-    if (!dob) errors.push("Date of birth is required");
-    if (!address || address.length < 10) {
-      errors.push("Address is required and should be at least 10 characters");
-    }
-  } else {
-    // OTP verification validation
-    if (!otp || !/^\d{4}$/.test(otp)) {
-      errors.push("Valid 4-digit OTP is required");
-    }
-    if (!phone) {
-      errors.push("Phone number is required for OTP verification");
-    }
+  // Registration form validation
+  if (!name) errors.push("Name is required");
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    errors.push("Valid email is required");
+  }
+  if (!password || password.length < 6) {
+    errors.push("Password must be at least 6 characters");
+  }
+  if (!['Male', 'Female', 'Other'].includes(gender)) {
+    errors.push("Valid gender is required");
+  }
+  if (!phone || !/^\d{10,15}$/.test(phone)) {
+    errors.push("Valid phone number is required");
+  }
+  if (!dob) errors.push("Date of birth is required");
+  if (!address || address.length < 10) {
+    errors.push("Address is required and should be at least 10 characters");
   }
 
   return errors;
 };
 
-// Send OTP to phone number
-exports.sendOTP = async (req, res) => {
+// Register user
+exports.register = async (req, res) => {
   try {
-    const { phone } = req.body;
-    
-    if (!phone || !/^\d{10,15}$/.test(phone)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Valid phone number is required'
-      });
-    }
-
-    const result = await sendOTP(phone);
-    
-    if (result.success) {
-      res.json({
-        success: true,
-        message: 'OTP sent successfully'
-      });
-    } else {
-      res.status(500).json({
-        success: false,
-        message: result.error || 'Failed to send OTP'
-      });
-    }
-  } catch (error) {
-    console.error('Error in sendOTP:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error'
-    });
-  }
-};
-
-// Verify OTP and complete registration
-exports.verifyAndRegister = async (req, res) => {
-  try {
-    // First validate the OTP
-    const otpValidationErrors = validateInput(req.body, true);
-    if (otpValidationErrors.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'OTP verification failed',
-        errors: otpValidationErrors
-      });
-    }
-
-    const { otp, phone } = req.body;
-    const otpResult = verifyOTP(phone, otp);
-
-    if (!otpResult.success) {
-      return res.status(400).json({
-        success: false,
-        message: 'OTP verification failed',
-        error: otpResult.error || 'Invalid OTP'
-      });
-    }
-
-    // OTP verified, now validate registration data
+    // Validate registration data
     const validationErrors = validateInput(req.body);
     if (validationErrors.length > 0) {
       return res.status(400).json({
@@ -107,7 +41,7 @@ exports.verifyAndRegister = async (req, res) => {
       });
     }
 
-    const { name, email, password, gender, dob, address } = req.body;
+    const { name, email, password, gender, phone, dob, address } = req.body;
 
     // Check if user already exists
     const existingUser = await pool.query(
@@ -132,7 +66,7 @@ exports.verifyAndRegister = async (req, res) => {
       `INSERT INTO users 
        (name, email, password, gender, phone, dob, address, role, is_verified)
        VALUES ($1, $2, $3, $4, $5, $6, $7, 'user', true)
-       RETURNING id, name, email, role`,
+       RETURNING user_id, name, email, role`,
       [name, email, hashedPassword, gender, phone, dob, address]
     );
 
@@ -145,13 +79,7 @@ exports.verifyAndRegister = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: 'Registration successful',
-      user: {
-        id: newUser.id,
-        name: newUser.name,
-        email: newUser.email,
-        role: newUser.role
-      }
+      message: 'Registration successful'
     });
 
   } catch (error) {
@@ -184,3 +112,5 @@ exports.verifyAndRegister = async (req, res) => {
     });
   }
 };
+
+
